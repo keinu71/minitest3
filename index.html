@@ -1,0 +1,210 @@
+<!-- index2.html: ①元素名・元素記号のテスト -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>① 元素名・元素記号テスト</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #fff;
+      color: #333;
+      padding: 1em;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .question {
+      margin-top: 1em;
+    }
+    .question input {
+      width: 100%;
+      padding: 0.5em;
+      font-size: 1em;
+    }
+    .correct {
+      background-color: #d4edda;
+    }
+    .incorrect {
+      background-color: #f8d7da;
+    }
+    .weak {
+      font-weight: bold;
+      color: #d9534f;
+    }
+    .btn {
+      margin-top: 1em;
+      padding: 0.7em 1.2em;
+      background: #007bff;
+      color: white;
+      border: none;
+      font-size: 1em;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background: #0056b3;
+    }
+    #result {
+      margin-top: 1em;
+    }
+    #history {
+      margin-top: 1em;
+      font-size: 0.9em;
+      color: #555;
+    }
+    #timer {
+      font-size: 1.2em;
+      color: #d9534f;
+      text-align: center;
+      margin-bottom: 1em;
+    }
+    .back-link {
+      display: block;
+      margin-top: 2em;
+      text-align: center;
+    }
+    #retryBtn {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>① 元素名・元素記号テスト</h1>
+  <div id="timer">制限時間: <span id="time">300</span> 秒</div>
+  <div id="quiz"></div>
+  <button class="btn" onclick="checkAnswers()">答え合わせ</button>
+  <button id="retryBtn" class="btn" onclick="restartQuiz()">再挑戦</button>
+  <div id="result"></div>
+  <div id="history"></div>
+  <a href="index1.html" class="back-link">← メニューに戻る</a>
+  <script>
+    const elements = [
+      [1, "水素", "H"], [2, "ヘリウム", "He"], [3, "リチウム", "Li"], [4, "ベリリウム", "Be"],
+      [5, "ホウ素", "B"], [6, "炭素", "C"], [7, "窒素", "N"], [8, "酸素", "O"],
+      [9, "フッ素", "F"], [10, "ネオン", "Ne"], [11, "ナトリウム", "Na"], [12, "マグネシウム", "Mg"],
+      [13, "アルミニウム", "Al"], [14, "ケイ素", "Si"], [15, "リン", "P"], [16, "硫黄", "S"],
+      [17, "塩素", "Cl"], [18, "アルゴン", "Ar"], [19, "カリウム", "K"], [20, "カルシウム", "Ca"]
+    ];
+    const fullQuizData = [];
+    elements.forEach(([num, name, symbol]) => {
+      fullQuizData.push({ id: `n${num}`, q: `元素番号${num}の元素名は？`, a: name, group: num });
+      fullQuizData.push({ id: `nm${num}`, q: `${name}の元素記号は？`, a: symbol, group: num });
+      fullQuizData.push({ id: `sy${num}`, q: `${symbol}は何という元素？`, a: name, group: num });
+      fullQuizData.push({ id: `ns${num}`, q: `元素番号${num}の元素記号は？`, a: symbol, group: num });
+    });
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+    function getMistakeStats() {
+      return JSON.parse(localStorage.getItem("quiz1_mistakes") || "{}");
+    }
+    const quizContainer = document.getElementById("quiz");
+    const retryBtn = document.getElementById("retryBtn");
+    let quizData = [];
+    function normalizeInput(str) {
+      return str.replace(/[Ａ-Ｚａ-ｚ]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
+    }
+    function renderQuiz() {
+      retryBtn.style.display = "none";
+      const stats = getMistakeStats();
+      const shuffledElements = [...elements];
+      shuffleArray(shuffledElements);
+      const selected = [];
+      for (const [num, name, symbol] of shuffledElements) {
+        const choices = [
+          { id: `n${num}`, q: `元素番号${num}の元素名は？`, a: name },
+          { id: `nm${num}`, q: `${name}の元素記号は？`, a: symbol },
+          { id: `sy${num}`, q: `${symbol}は何という元素？`, a: name },
+          { id: `ns${num}`, q: `元素番号${num}の元素記号は？`, a: symbol }
+        ];
+        shuffleArray(choices);
+        const chosen = choices[0];
+        chosen.group = num;
+        selected.push(chosen);
+        if (selected.length >= 15) break;
+      }
+      quizData = selected;
+      quizContainer.innerHTML = "";
+      quizData.forEach((item, i) => {
+        const weakMark = (stats[item.id] || 0) >= 2 ? "<span class='weak'>【苦手】</span>" : "";
+        const div = document.createElement("div");
+        div.className = "question";
+        div.innerHTML = `<p>Q${i + 1}. ${item.q} ${weakMark}</p><input type="text" id="ans${i}" /><span id="feedback${i}"></span>`;
+        quizContainer.appendChild(div);
+      });
+    }
+    renderQuiz();
+    function checkAnswers() {
+      let correct = 0;
+      const stats = getMistakeStats();
+      const correctStreak = JSON.parse(localStorage.getItem("quiz1_correctStreak") || "{}");
+      quizData.forEach((item, i) => {
+        const input = document.getElementById(`ans${i}`);
+        const userAnsRaw = normalizeInput(input.value.trim());
+        const userAns = userAnsRaw;
+        const answer = item.a;
+        const feedback = document.getElementById(`feedback${i}`);
+        if (userAns === answer) {
+          correct++;
+          input.className = "correct";
+          feedback.textContent = " 〇";
+          correctStreak[item.id] = (correctStreak[item.id] || 0) + 1;
+          if (correctStreak[item.id] >= 2) stats[item.id] = 0;
+        } else {
+          input.className = "incorrect";
+          feedback.textContent = ` ✕（正解: ${item.a}）`;
+          stats[item.id] = (stats[item.id] || 0) + 1;
+          correctStreak[item.id] = 0;
+        }
+      });
+      localStorage.setItem("quiz1_mistakes", JSON.stringify(stats));
+      localStorage.setItem("quiz1_correctStreak", JSON.stringify(correctStreak));
+      const percentage = (correct / quizData.length * 100).toFixed(1);
+      const score = `正解数: ${correct} / ${quizData.length}（正答率 ${percentage}%）`;
+      document.getElementById("result").innerText = score;
+      const now = new Date().toLocaleString();
+      const history = JSON.parse(localStorage.getItem("quiz1_history") || "[]");
+      history.unshift({ time: now, result: score });
+      localStorage.setItem("quiz1_history", JSON.stringify(history));
+      const historyDisplay = history.map(h => `<div>【${h.time}】${h.result}</div>`).join("");
+      document.getElementById("history").innerHTML = `<h3>履歴</h3>${historyDisplay}`;
+      retryBtn.style.display = "inline-block";
+    }
+    function restartQuiz() {
+      clearInterval(countdown);
+      timeLeft = 300;
+      timer.innerText = timeLeft;
+      renderQuiz();
+      document.getElementById("result").innerText = "";
+      document.getElementById("history").innerText = "";
+      countdown = setInterval(() => {
+        timeLeft--;
+        timer.innerText = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          checkAnswers();
+          alert("時間切れです！自動で答え合わせを行いました。");
+        }
+      }, 1000);
+    }
+    let timeLeft = 300;
+    const timer = document.getElementById("time");
+    let countdown = setInterval(() => {
+      timeLeft--;
+      timer.innerText = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(countdown);
+        checkAnswers();
+        alert("時間切れです！自動で答え合わせを行いました。");
+      }
+    }, 1000);
+  </script>
+</body>
+</html>
